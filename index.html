@@ -1,1 +1,51 @@
-
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JARVIS AI</title>
+<style>
+body{background:#030813;color:#60cfff;font-family:Arial;text-align:center;padding:20px}
+.orb{width:200px;height:200px;border:3px solid #168edb;border-radius:50%;margin:50px auto;display:grid;place-items:center;box-shadow:0 0 35px #168edb;animation:spin 8s linear infinite}
+.core{width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,white,#42bfff,#0065ba);box-shadow:0 0 35px #168bff;animation:pulse 1.5s infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{50%{transform:scale(1.15)}}
+button,input{padding:12px;margin:8px;background:#071a30;color:#b9eaff;border:1px solid #168edb;border-radius:10px}
+</style>
+</head>
+<body>
+<h1>J.A.R.V.I.S.</h1>
+<div class="orb"><div class="core"></div></div>
+<p id="status">SİSTEM HAZIR</p>
+<p id="answer">İyi günler, Efendim.</p>
+<button onclick="listen()">🎙 KONUŞ</button>
+<br>
+<input id="cmd" placeholder="Komutunu yaz">
+<button onclick="run()">GÖNDER</button>
+<script>
+function speak(t){
+document.getElementById('answer').textContent=t;
+let u=new SpeechSynthesisUtterance(t);
+u.lang='tr-TR';u.rate=.9;u.pitch=.8;
+speechSynthesis.cancel();
+speechSynthesis.speak(u);
+}
+function run(){
+let t=document.getElementById('cmd').value.toLowerCase();
+if(t.includes('saat'))speak('Saat '+new Date().toLocaleTimeString('tr-TR')+', Efendim.');
+else if(t.includes('harita')){speak('Haritaları açıyorum, Efendim.');window.open('https://maps.apple.com/','_blank');}
+else if(t.includes('merhaba'))speak('İyi günler, Efendim.');
+else speak('Komutunuzu aldım, Efendim. Yapay zekâ bağlantısı henüz eklenmedi.');
+}
+function listen(){
+let R=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(!R){speak('Ses tanıma desteklenmiyor. Komutunuzu yazabilirsiniz.');return;}
+let r=new R();r.lang='tr-TR';
+r.onstart=()=>document.getElementById('status').textContent='SİZİ DİNLİYORUM';
+r.onresult=e=>{document.getElementById('cmd').value=e.results[0][0].transcript;run();};
+r.onend=()=>document.getElementById('status').textContent='SİSTEM HAZIR';
+r.start();
+}
+</script>
+</body>
+</html>
