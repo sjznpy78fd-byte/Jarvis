@@ -1,1 +1,183 @@
 
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title></title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000}
+canvas{display:block;width:100%;height:100%;touch-action:manipulation}
+</style>
+</head>
+<body>
+<canvas id="screen"></canvas>
+<script>
+const c=document.getElementById("screen");
+const x=c.getContext("2d");
+let W,H,D,t=0,sound=0,target=0;
+let stream=null,analyser=null,data=null,ac=null,busy=false;
+const particles=Array.from({length:320},()=>({
+ a:Math.random()*Math.PI*2,
+ r:.25+Math.random()*.85,
+ s:.4+Math.random()*1.6,
+ v:(Math.random()-.5)*.012,
+ p:Math.random()*6.28
+}));
+
+function resize(){
+ D=Math.min(devicePixelRatio||1,2);
+ W=innerWidth;H=innerHeight;
+ c.width=W*D;c.height=H*D;
+ x.setTransform(D,0,0,D,0,0);
+}
+addEventListener("resize",resize);resize();
+
+function ellipse(cx,cy,rx,ry,a,color,w=1,b=12){
+ x.save();x.translate(cx,cy);x.rotate(a);
+ x.beginPath();x.ellipse(0,0,Math.max(1,rx),Math.max(1,ry),0,0,Math.PI*2);
+ x.strokeStyle=color;x.lineWidth=w;x.shadowColor=color;x.shadowBlur=b;
+ x.stroke();x.restore();
+}
+function line(points,color,w=1,b=12){
+ if(points.length<2)return;
+ x.save();x.beginPath();
+ points.forEach((p,i)=>i?x.lineTo(p.x,p.y):x.moveTo(p.x,p.y));
+ x.strokeStyle=color;x.lineWidth=w;x.shadowColor=color;x.shadowBlur=b;
+ x.stroke();x.restore();
+}
+function dot(px,py,r,color,b=12){
+ x.save();x.fillStyle=color;x.shadowColor=color;x.shadowBlur=b;
+ x.beginPath();x.arc(px,py,r,0,Math.PI*2);x.fill();x.restore();
+}
+
+function draw(){
+ requestAnimationFrame(draw);t+=.012;
+
+ if(analyser&&data&&ac&&ac.state==="running"){
+  analyser.getByteTimeDomainData(data);
+  let sum=0;
+  for(let i=0;i<data.length;i++){
+   const v=(data[i]-128)/128;sum+=v*v;
+  }
+  target=Math.min(1,Math.max(0,(Math.sqrt(sum/data.length)-.008)*16));
+ }else target=0;
+ sound+=(target-sound)*.2;
+
+ x.clearRect(0,0,W,H);
+ x.fillStyle="#000";x.fillRect(0,0,W,H);
+
+ const cx=W/2,cy=H*.47;
+ const u=Math.min(W,H)*(.43+sound*.045);
+ const pulse=1+Math.sin(t*2)*.015+sound*.09;
+
+ x.save();x.translate(cx,cy);x.scale(pulse,1);
+
+ const aura=x.createRadialGradient(0,0,u*.04,0,0,u*1.45);
+ aura.addColorStop(0,"rgba(0,120,255,.2)");
+ aura.addColorStop(.4,"rgba(0,65,220,.09)");
+ aura.addColorStop(1,"rgba(0,0,0,0)");
+ x.fillStyle=aura;
+ x.fillRect(-u*1.5,-u*1.5,u*3,u*3);
+
+ for(let i=0;i<10;i++){
+  const a=t*(i%2?-.13:.09)+i*.43;
+  ellipse(0,0,u*(.4+i*.065),u*(.19+i*.024),a,
+   `rgba(${35+i*2},${130+i*8},255,${.65-i*.045})`,
+   i%3===0?1.5:.7,14);
+ }
+
+ for(let j=0;j<12;j++){
+  const pts=[],phase=t*(j%2?1:-1)+j*Math.PI/6;
+  for(let i=0;i<=160;i++){
+   const q=i/160,a=q*Math.PI*2+phase;
+   const r=u*(.18+.31*Math.sin(q*Math.PI)
+    +.045*Math.sin(a*4+t*2)+sound*.06);
+   pts.push({x:Math.cos(a)*r,y:Math.sin(a)*r*.78});
+  }
+  line(pts,j%2?"rgba(80,195,255,.85)":"rgba(0,105,255,.8)",
+   j%3===0?1.7:.85,18);
+ }
+
+ for(let j=0;j<5;j++){
+  x.save();x.rotate(t*(j%2?-.2:.16)+j*1.2);
+  ellipse(0,0,u*(.35+j*.055),u*(.29+j*.035),
+   j*.3,"rgba(35,150,255,.65)",1,13);
+  const n=6,pts=[];
+  for(let i=0;i<=n;i++){
+   const a=i*Math.PI*2/n+t*.2+j;
+   pts.push({x:Math.cos(a)*u*(.4+j*.045),
+             y:Math.sin(a)*u*(.4+j*.045)});
+  }
+  line(pts,"rgba(40,130,255,.42)",.8,9);
+  x.restore();
+ }
+
+ const cr=u*(.2+sound*.065);
+ const g=x.createRadialGradient(-cr*.34,-cr*.4,1,0,0,cr*1.5);
+ g.addColorStop(0,"#ffffff");
+ g.addColorStop(.12,"#c7f8ff");
+ g.addColorStop(.28,"#53d4ff");
+ g.addColorStop(.5,"#078dff");
+ g.addColorStop(.76,"rgba(0,52,180,.9)");
+ g.addColorStop(1,"rgba(0,0,0,0)");
+ x.fillStyle=g;
+ x.beginPath();x.arc(0,0,cr*1.5,0,Math.PI*2);x.fill();
+
+ for(let i=0;i<16;i++){
+  const yy=(i-7.5)*cr*.13;
+  const ww=Math.sqrt(Math.max(0,cr*cr-yy*yy));
+  ellipse(0,yy,ww,Math.max(.5,cr*.018),t+i*.15,
+   "rgba(155,235,255,.48)",.7,7);
+ }
+
+ for(const p of particles){
+  p.a+=p.v;
+  const r=u*p.r;
+  const px=Math.cos(p.a)*r;
+  const py=Math.sin(p.a)*r*.8;
+  const alpha=.25+.6*(.5+.5*Math.sin(t*3+p.p));
+  dot(px,py,p.s*(1+sound*1.5),
+   `rgba(75,180,255,${alpha})`,8+sound*14);
+ }
+
+ for(let i=0;i<8;i++){
+  const a=t*.55+i*Math.PI/4;
+  dot(Math.cos(a)*u*.76,Math.sin(a)*u*.43,
+   1.5+sound*3,"#9befff",18);
+ }
+
+ x.restore();
+}
+
+async function enableMic(){
+ if(busy)return;
+ busy=true;
+ try{
+  if(!navigator.mediaDevices?.getUserMedia)
+   throw new Error("Mikrofon desteklenmiyor");
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)throw new Error("Ses analizi desteklenmiyor");
+  if(!ac)ac=new AC();
+  await ac.resume();
+  if(!stream){
+   stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  }
+  if(!analyser){
+   analyser=ac.createAnalyser();
+   analyser.fftSize=1024;
+   analyser.smoothingTimeConstant=.7;
+   ac.createMediaStreamSource(stream).connect(analyser);
+   data=new Uint8Array(analyser.fftSize);
+  }
+ }catch(e){console.error("Mikrofon:",e.message)}
+ finally{busy=false}
+}
+
+document.addEventListener("pointerdown",enableMic);
+draw();
+</script>
+</body>
+</html>
